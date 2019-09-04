@@ -1,2 +1,2 @@
 tensorflow
-tfx
+tfx==0.14.0rc1
