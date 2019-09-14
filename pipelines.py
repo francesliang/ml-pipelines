@@ -21,11 +21,12 @@ from tfx.proto import trainer_pb2
 from tfx.proto import pusher_pb2
 
 
-module_file = "pipeline_utils.py"
+pipeline_name = "ml-pipelines"
+#pipeline_root = os.path.dirname(os.path.realpath(__file__))
+pipeline_root = os.path.join(os.environ['HOME'], 'airflow/dags', pipeline_name)
 
-pipeline_name = "ml_pipeline"
-pipeline_root = os.path.dirname(os.path.realpath(__file__))
-tfrecord_dir = os.path.join(pipeline_root, "tfrecords")
+module_file = os.path.join(pipeline_root, "pipeline_utils.py")
+tfrecord_dir = os.path.join(pipeline_root, "data/tfrecords")
 serving_model_dir = os.path.join(pipeline_root, "models")
 
 airflow_config = {
