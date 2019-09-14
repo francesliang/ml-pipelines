@@ -17,7 +17,7 @@ def image_to_tfrecord(image_bytes, label):
 
 
 def write_tfrecords(tfrecord_file, image_labels):
-    with tf.python_io.TFRecordWriter(tfrecord_file) as writer:
+    with tf.io.TFRecordWriter(tfrecord_file) as writer:
         for file_name, label in image_labels.items():
             image_bytes = open(file_name, 'rb').read()
             tf_example = image_to_tfrecord(image_bytes, label)

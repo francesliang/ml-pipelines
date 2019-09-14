@@ -4,16 +4,106 @@ import os
 from tfx import components
 from tfx.utils.dsl_utils import tfrecord_input
 from tfx.components.example_gen.import_example_gen.component import ImportExampleGen
+from tfx.components.statistics_gen.component import StatisticsGen
+from tfx.components.schema_gen.component import SchemaGen
+from tfx.components.example_validator.component import ExampleValidator
+from tfx.components.transform.component import Transform
+from tfx.components.trainer.component import Trainer
+from tfx.components.model_validator.component import ModelValidator
+from tfx.components.pusher.component import Pusher
+
+from tfx.orchestration import metadata
+from tfx.orchestration import pipeline
+from tfx.orchestration.airflow.airflow_dag_runner import AirflowDagRunner
+
+from tfx.proto import trainer_pb2
+from tfx.proto import pusher_pb2
 
 
-def create_pipelines(tfrecord_dir):
+module_file = "pipeline_utils.py"
+
+pipeline_name = "ml_pipeline"
+pipeline_root = os.path.dirname(os.path.realfile(__file__))
+tfrecord_dir = os.path.join(pipeline_root, "tfrecords")
+serving_model_dir = os.path.join(pipeline_root, "models")
+
+airflow_config = {
+    'schedule_interval': None,
+    'start_date': datetime.datetime(2019, 1, 1),
+}
+
+
+def create_pipelines(
+        tfrecord_dir,
+        pipeline_name,
+        pipeline_root,
+        serving_model_dir
+    ):
 
     examples = tfrecord_input(tfrecord_dir)
     example_gen = ImportExampleGen(input_base=examples)
-    print('example-gen', example_gen)
+    print('example-gen', example_gen.outputs.examples)
+
+    statistics_gen = StatisticsGen(
+        input_data = example_gen.outputs.examples)
+    print('statistics-gen', statistics_gen.outputs.output)
+
+    infer_schema = SchemaGen(stats=statistics_gen.outputs.output)
+    print('schema-gen', infer_schema.outputs.output)
+
+    validate_stats = ExampleValidator(
+        stats=statistics_gen.outputs.output,
+        schema=infer_schema.outputs.output)
+    print('example-validator', validate_stats.outputs.output)
+
+    transform = Transform(
+        input_data=example_gen.outputs.examples,
+        schema=infer_schema.outputs.output,
+        module_file=module_file)
+    print('transform', transform.outputs.transformed_examples)
+
+    trainer = Trainer(
+        module_file=module_file,
+        transformed_examples=transform.outputs.transformed_examples,
+        schema=infer_schema.outputs.output,
+        transform_output=transform.outputs.transform_output,
+        train_args=trainer_pb2.TrainArgs(num_steps=100),
+        eval_args=trainer_pb2.EvalArgs(num_steps=50))
+    print('trainer', trainer.outputs.output)
+
+    # model_analyzer = Evaluator()
+
+    model_validator = ModelValidator(
+        examples=example_gen.outputs.examples,
+        model=trainer.outputs.output)
+
+    pusher = Pusher(
+        model_export=trainer.outputs.output,
+        model_blessing=model_validator.outputs.blessing,
+        push_destination=pusher_pb2.PushDestination(
+          filesystem=pusher_pb2.PushDestination.Filesystem(
+              base_directory=serving_model_dir))
+    )
+
+    pipe = pipeline.Pipeline(
+        pipeline_name=pipeline_name,
+        pipeline_root=pipeline_root,
+        components=[
+            example_gen, statistics_gen, infer_schema, validate_stats, transform,
+            trainer, model_validator, pusher
+        ],
+        enable_cache=True
+        #metadata_connection_config=metadata.sqlite_metadata_connection_config(metadata_path)
+    )
+
+    return pipe
 
 
-if __name__ == '__main__':
-    tfrecord_dir = sys.argv[1]
-    create_pipelines(tfrecord_dir)
+DAG = AirflowDagRunner(airflow_config).run(
+    create_pipelines(
+        tfrecord_dir,
+        pipeline_name,
+        pipeline_root,
+        serving_model_dir
+    ))
 
