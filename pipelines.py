@@ -1,5 +1,6 @@
 import sys
 import os
+import datetime
 
 from tfx import components
 from tfx.utils.dsl_utils import tfrecord_input
@@ -23,7 +24,7 @@ from tfx.proto import pusher_pb2
 module_file = "pipeline_utils.py"
 
 pipeline_name = "ml_pipeline"
-pipeline_root = os.path.dirname(os.path.realfile(__file__))
+pipeline_root = os.path.dirname(os.path.realpath(__file__))
 tfrecord_dir = os.path.join(pipeline_root, "tfrecords")
 serving_model_dir = os.path.join(pipeline_root, "models")
 
