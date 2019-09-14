@@ -1,6 +1,7 @@
 import sys
 import os
 import datetime
+import logging
 
 from tfx import components
 from tfx.utils.dsl_utils import tfrecord_input
@@ -16,17 +17,22 @@ from tfx.components.pusher.component import Pusher
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
 from tfx.orchestration.airflow.airflow_dag_runner import AirflowDagRunner
+from tfx.orchestration.pipeline import PipelineDecorator
 
 from tfx.proto import trainer_pb2
 from tfx.proto import pusher_pb2
 
 
 pipeline_name = "ml-pipelines"
-#pipeline_root = os.path.dirname(os.path.realpath(__file__))
-pipeline_root = os.path.join(os.environ['HOME'], 'airflow/dags', pipeline_name)
+pipeline_root = os.path.dirname(os.path.realpath(__file__))
+airflow_root = os.path.join(os.environ['HOME'], 'airflow')
+airflow_data_root = os.path.join(airflow_root, "data", pipeline_name)
+airflow_pipeline_root = os.path.join(airflow_root, pipeline_name)
+metadata_db_root = os.path.join(airflow_pipeline_root, 'metadata')
+log_root = os.path.join(airflow_pipeline_root, 'logs')
 
-module_file = os.path.join(pipeline_root, "pipeline_utils.py")
-tfrecord_dir = os.path.join(pipeline_root, "data/tfrecords")
+module_file = os.path.join(airflow_pipeline_root, "pipeline_utils.py")
+tfrecord_dir = os.path.join(airflow_data_root, "tfrecords")
 serving_model_dir = os.path.join(pipeline_root, "models")
 
 airflow_config = {
@@ -34,13 +40,20 @@ airflow_config = {
     'start_date': datetime.datetime(2019, 1, 1),
 }
 
+# Logging overrides
+logger_overrides = {
+    'log_root': log_root,
+    'log_level': logging.INFO
+}
 
-def create_pipelines(
-        tfrecord_dir,
-        pipeline_name,
-        pipeline_root,
-        serving_model_dir
-    ):
+
+@PipelineDecorator(
+    pipeline_name=pipeline_name,
+    enable_cache=True,
+    metadata_db_root=metadata_db_root,
+    additional_pipeline_args={'logger_args': logger_overrides},
+    pipeline_root=airflow_pipeline_root)
+def create_pipelines():
 
     examples = tfrecord_input(tfrecord_dir)
     example_gen = ImportExampleGen(input_base=examples)
@@ -87,25 +100,14 @@ def create_pipelines(
               base_directory=serving_model_dir))
     )
 
-    pipe = pipeline.Pipeline(
-        pipeline_name=pipeline_name,
-        pipeline_root=pipeline_root,
-        components=[
-            example_gen, statistics_gen, infer_schema, validate_stats, transform,
-            trainer, model_validator, pusher
-        ],
-        enable_cache=True
-        #metadata_connection_config=metadata.sqlite_metadata_connection_config(metadata_path)
-    )
+    components=[
+        example_gen, statistics_gen, infer_schema, validate_stats, transform,
+        trainer, model_validator, pusher
+    ]
 
-    return pipe
+    return components
 
 
 DAG = AirflowDagRunner(airflow_config).run(
-    create_pipelines(
-        tfrecord_dir,
-        pipeline_name,
-        pipeline_root,
-        serving_model_dir
-    ))
+    create_pipelines())
 
