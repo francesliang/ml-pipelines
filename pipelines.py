@@ -17,7 +17,6 @@ from tfx.components.pusher.component import Pusher
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
 from tfx.orchestration.airflow.airflow_dag_runner import AirflowDagRunner
-from tfx.orchestration.pipeline import PipelineDecorator
 
 from tfx.proto import trainer_pb2
 from tfx.proto import pusher_pb2
@@ -28,12 +27,12 @@ pipeline_root = os.path.dirname(os.path.realpath(__file__))
 airflow_root = os.path.join(os.environ['HOME'], 'airflow')
 airflow_data_root = os.path.join(airflow_root, "data", pipeline_name)
 airflow_pipeline_root = os.path.join(airflow_root, pipeline_name)
-metadata_db_root = os.path.join(airflow_pipeline_root, 'metadata')
+metadata_db_root = os.path.join(airflow_pipeline_root, 'metadata', 'metadata.db')
 log_root = os.path.join(airflow_pipeline_root, 'logs')
 
 module_file = os.path.join(airflow_pipeline_root, "pipeline_utils.py")
 tfrecord_dir = os.path.join(airflow_data_root, "tfrecords")
-serving_model_dir = os.path.join(pipeline_root, "models")
+serving_model_dir = os.path.join(airflow_pipeline_root, "models")
 
 airflow_config = {
     'schedule_interval': None,
@@ -47,12 +46,6 @@ logger_overrides = {
 }
 
 
-@PipelineDecorator(
-    pipeline_name=pipeline_name,
-    enable_cache=True,
-    metadata_db_root=metadata_db_root,
-    additional_pipeline_args={'logger_args': logger_overrides},
-    pipeline_root=airflow_pipeline_root)
 def create_pipelines():
 
     examples = tfrecord_input(tfrecord_dir)
@@ -100,12 +93,18 @@ def create_pipelines():
               base_directory=serving_model_dir))
     )
 
-    components=[
-        example_gen, statistics_gen, infer_schema, validate_stats, transform,
-        trainer, model_validator, pusher
-    ]
 
-    return components
+    return pipeline.Pipeline(
+        pipeline_name=pipeline_name,
+        pipeline_root=airflow_pipeline_root,
+        components=[
+            example_gen, statistics_gen, infer_schema #validate_stats, transform,
+            #trainer, model_validator, pusher
+        ],
+        enable_cache=True,
+        metadata_db_root=metadata_db_root,
+        additional_pipeline_args={'logger_args': logger_overrides}
+    )
 
 
 DAG = AirflowDagRunner(airflow_config).run(
