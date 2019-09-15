@@ -17,4 +17,7 @@ echo "Copy project files to airflow home directory"
 cp -r pipelines.py pipeline_utils.py $AIRFLOW_DAGS_PATH
 cp -r data/* $AIRFLOW_DATA_PATH
 
+# macOS High Sierra workaround:
+#export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
 
