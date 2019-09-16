@@ -30,7 +30,7 @@ airflow_pipeline_root = os.path.join(airflow_root, pipeline_name)
 metadata_db_root = os.path.join(airflow_pipeline_root, 'metadata', 'metadata.db')
 log_root = os.path.join(airflow_pipeline_root, 'logs')
 
-module_file = os.path.join(airflow_pipeline_root, "pipeline_utils.py")
+module_file = os.path.join(airflow_root, "dags", pipeline_name, "pipeline_utils.py")
 tfrecord_dir = os.path.join(airflow_data_root, "tfrecords")
 serving_model_dir = os.path.join(airflow_pipeline_root, "models")
 
@@ -98,8 +98,8 @@ def create_pipelines():
         pipeline_name=pipeline_name,
         pipeline_root=airflow_pipeline_root,
         components=[
-            example_gen, statistics_gen, infer_schema #validate_stats, transform,
-            #trainer, model_validator, pusher
+            example_gen, statistics_gen, infer_schema, validate_stats, transform,
+            trainer #, model_validator, pusher
         ],
         enable_cache=True,
         metadata_db_root=metadata_db_root,
