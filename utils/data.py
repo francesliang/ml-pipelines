@@ -3,8 +3,10 @@ import tensorflow as tf
 import PIL
 import numpy as np
 
+NUM_CLASS = 10
 
-def image_to_tfrecord(image_file, label):
+
+def image_to_tfrecord(image_file, label_list):
     image = PIL.Image.open(image_file)
     image_arr = np.asarray(image)
     image_shape = image_arr.shape
@@ -17,7 +19,7 @@ def image_to_tfrecord(image_file, label):
         'height': _int64_feature([h]),
         'width': _int64_feature([w]),
         'depth': _int64_feature([d]),
-        'label': _int64_feature([label]),
+        'label': _int64_feature(label_list),
         'image_raw': _int64_feature(image_arr.flatten())
     }
 
@@ -28,7 +30,9 @@ def image_to_tfrecord(image_file, label):
 def write_tfrecords(tfrecord_file, image_labels, num=10):
     with tf.io.TFRecordWriter(tfrecord_file) as writer:
         for file_name, label in list(image_labels.items())[:num]:
-            tf_example = image_to_tfrecord(file_name, label)
+            label_list = np.zeros(NUM_CLASS, dtype=np.uint8)
+            label_list[int(label)-1] = 1
+            tf_example = image_to_tfrecord(file_name, label_list)
             if tf_example:
                 writer.write(tf_example.SerializeToString())
             else:
