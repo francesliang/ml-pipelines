@@ -56,7 +56,9 @@ def create_pipelines():
         input_data = example_gen.outputs.examples)
     print('statistics-gen', statistics_gen.outputs.output)
 
-    infer_schema = SchemaGen(stats=statistics_gen.outputs.output)
+    infer_schema = SchemaGen(
+        stats=statistics_gen.outputs.output,
+        infer_feature_shape=True)
     print('schema-gen', infer_schema.outputs.output)
 
     validate_stats = ExampleValidator(

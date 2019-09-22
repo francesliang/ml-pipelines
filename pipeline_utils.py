@@ -4,6 +4,13 @@ import tensorflow as tf
 import tensorflow_transform as tft
 from tensorflow_transform.tf_metadata import schema_utils
 
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten, InputLayer, Reshape
+from keras.layers import Conv2D, MaxPooling2D
+from keras import backend as K
+from keras.datasets import mnist
+
 
 THIS_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -13,20 +20,27 @@ FEATURE_KEYS = ["image_raw", "label"]
 
 _LABEL_KEY = "label"
 
+IM_SHAPE = (28, 28, 1)
+DIM = (1, 28, 28, 1)
+
+INPUT_LAYER = 'input_1'
+
 model_dir = os.path.join(THIS_PATH, 'models')
 
 
 def _transformed_name(key):
     output = key
     if key == "image_raw":
-        output = "input_1"  # input data name of keras inception-v3 model
+        output = INPUT_LAYER
     return output
 
 
 def preprocessing_fn(inputs):
     outputs = {}
     for key in FEATURE_KEYS:
-        outputs[_transformed_name(key)] = inputs[key]
+        print("input info", inputs[key])
+        input_sparse_tensor = inputs[key]
+        outputs[_transformed_name(key)] = input_sparse_tensor
     print('outputs in preprocessing', outputs)
     return outputs
 
@@ -38,8 +52,43 @@ def _get_raw_feature_spec(schema):
 
 def _gzip_reader_fn(filenames):
     """Small utility returning a record reader that can read gzip'ed files."""
+    #dataset = tf.data.TFRecordDataset(filenames, compression_type='GZIP')
+    #dataset = dataset.map(_example_proto_to_features_fn)
+    #return dataset
+
     return tf.data.TFRecordDataset(filenames, compression_type='GZIP')
 
+
+def _example_proto_to_features_fn(example_proto):
+    print('example_proto', example_proto)
+    features = tf.parse_single_example(example_proto, features={
+        'input_1': tf.FixedLenFeature([IM_SHAPE[0]*IM_SHAPE[1]*IM_SHAPE[2]], tf.int64),
+        'label': tf.FixedLenFeature([10], tf.int64)
+    })
+
+    image = tf.cast(features['input_1'], tf.int32)
+    label = tf.cast(features['label'], tf.int32)
+
+    return image, label
+
+
+def _get_batch_iterator(filenames, batch_size):
+    dataset = tf.data.TFRecordDataset(filenames, compression_type='GZIP')
+    dataset = dataset.map(_example_proto_to_features_fn)
+    dataset = dataset.batch(batch_size).repeat().prefetch(1)
+    features, labels = dataset.make_one_shot_iterator().get_next()
+    return {'input_1': features}, labels
+
+
+'''
+def input_fn(filenames, batch_size=2):
+    file_dir = os.path.dirname(filenames[0])
+    file_names=[os.path.join(file_dir, f) for f in os.listdir(file_dir)]
+    features, labels = _get_batch_iterator(file_names, batch_size)
+    print("input_fn features", features)
+    print("input_fn labels", labels)
+    return features, labels
+'''
 
 def input_fn(filenames, tf_transform_output, batch_size=2):
     transformed_feature_spec = (
@@ -47,10 +96,20 @@ def input_fn(filenames, tf_transform_output, batch_size=2):
 
     print('transformed_feature_spec', transformed_feature_spec)
 
+    #dataset = _gzip_reader_fn(filenames)
+
     dataset = tf.data.experimental.make_batched_features_dataset(
       filenames, batch_size, transformed_feature_spec, reader=_gzip_reader_fn)
 
     transformed_features = dataset.make_one_shot_iterator().get_next()
+    #features, labels = dataset.make_one_shot_iterator().get_next()
+    #print('features in input-fn', features)
+
+    #return {'input_1': features}, labels
+
+    #transformed_features[INPUT_LAYER] = tf.sparse.reshape(transformed_features[key], DIM)
+
+    print('transformed_features', transformed_features)
     # We pop the label because we do not want to use it as a feature while we're
     # training.
     return transformed_features, transformed_features.pop(_LABEL_KEY)
@@ -75,16 +134,9 @@ def serving_receiver_fn(tf_transform_output, schema):
 
 
 def trainer_fn(hparams, schema):
-    train_batch_size = 5
-    eval_batch_size = 5
+    train_batch_size = 2
+    eval_batch_size = 2
 
-    '''
-    train_input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={"input_1": train_data},
-        y=train_labels,
-        num_epochs=1,
-        shuffle=False)
-    '''
     print('Hyperparameters in trainer_fn', hparams.__dict__)
 
     tf_transform_output = tft.TFTransformOutput(hparams.transform_output)
@@ -121,15 +173,69 @@ def trainer_fn(hparams, schema):
 
 
 def build_estimator():
-    inception_v3 = tf.keras.applications.inception_v3.InceptionV3(weights=None)
-    print("Model input names", inception_v3.input_names)
-    print("Model output names", inception_v3.output_names)
-    optimiser = tf.keras.optimizers.Adam(learning_rate=1e-5)
-    inception_v3.compile(
-        optimizer=optimiser,
-        loss='categorical_crossentropy',
-        metric='accuracy')
+    '''
+    num_classes = len(LABEL_KEYS)
 
-    estimator = tf.keras.estimator.model_to_estimator(keras_model=inception_v3)
+    img_rows = 28
+    img_cols = 28
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    print('x-train shape origianlly', x_train.shape)
+    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 1)
+    x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
+
+    x_train = x_train.astype('float32')
+    x_test = x_test.astype('float32')
+    x_train /= 255
+    x_test /= 255
+    print('x_train shape:', x_train.shape)
+    print(x_train.shape[0], 'train samples')
+    print(x_test.shape[0], 'test samples')
+
+# convert class vectors to binary class matrices
+    y_train = keras.utils.to_categorical(y_train, num_classes)
+    y_test = keras.utils.to_categorical(y_test, num_classes)
+    '''
+
+
+    num_classes = len(LABEL_KEYS)
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.InputLayer(input_shape=(IM_SHAPE[0]*IM_SHAPE[1]*IM_SHAPE[2],), name='input_1'))
+    #x = tf.keras.Input(shape=(IM_SHAPE[0]*IM_SHAPE[1]*IM_SHAPE[2],), sparse=True, name='input_1')
+    #x_ = tf.sparse_to_dense(x.indices, x.shape, x.values)
+    model.add(tf.keras.layers.Reshape(IM_SHAPE))
+    model.add(tf.keras.layers.Conv2D(32, kernel_size=(3, 3),
+                     activation='relu',
+                     input_shape=IM_SHAPE))
+    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+    model.add(tf.keras.layers.Dropout(0.25))
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(128, activation='relu'))
+    model.add(tf.keras.layers.Dropout(0.5))
+    model.add(tf.keras.layers.Dense(num_classes, activation='softmax'))
+
+
+    tf_keras_model = model
+    #optimiser = tf.keras.optimizers.Adam(learning_rate=1e-5)
+    optimiser = tf.keras.optimizers.Adadelta()
+
+    tf_keras_model.compile(loss=tf.keras.losses.categorical_crossentropy,
+                  optimizer=optimiser)
+                  #metrics=['accuracy'])
+
+    estimator = tf.keras.estimator.model_to_estimator(keras_model=tf_keras_model)
+
+
+    '''
+    train_input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={"conv2d_input": x_train},
+        y=y_train,
+        batch_size=100,
+        shuffle=True,
+        num_epochs=None)
+
+    estimator.train(train_input_fn, steps=10)
+    '''
 
     return estimator
+
