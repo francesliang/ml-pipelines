@@ -1,6 +1,7 @@
 import os
 
 import tensorflow as tf
+import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tensorflow_transform.tf_metadata import schema_utils
 
@@ -52,9 +53,6 @@ def _get_raw_feature_spec(schema):
 
 def _gzip_reader_fn(filenames):
     """Small utility returning a record reader that can read gzip'ed files."""
-    #dataset = tf.data.TFRecordDataset(filenames, compression_type='GZIP')
-    #dataset = dataset.map(_example_proto_to_features_fn)
-    #return dataset
 
     return tf.data.TFRecordDataset(filenames, compression_type='GZIP')
 
@@ -126,11 +124,43 @@ def serving_receiver_fn(tf_transform_output, schema):
         raw_feature_spec, default_batch_size=None)
     serving_input_receiver = raw_input_fn()
 
+    print('serving_input_receiver.features', serving_input_receiver.features)
+
     transformed_features = tf_transform_output.transform_raw_features(
         serving_input_receiver.features)
+    transformed_features.pop(_LABEL_KEY)
+
+    print('transformed_features in serving', transformed_features)
 
     return tf.estimator.export.ServingInputReceiver(
         transformed_features, serving_input_receiver.receiver_tensors)
+
+
+def eval_input_receiver_fn(tf_transform_output, schema):
+    """Build everything needed for the tf-model-analysis to run the model."""
+    raw_feature_spec = _get_raw_feature_spec(schema)
+    serialized_tf_example = tf.placeholder(
+      dtype=tf.string, shape=[None], name='input_example_tensor')
+
+    # Add a parse_example operator to the tensorflow graph, which will parse
+    # raw, untransformed, tf examples.
+    features = tf.parse_example(serialized_tf_example, raw_feature_spec)
+
+    # Now that we have our raw examples, process them through the tf-transform
+    # function computed during the preprocessing step.
+    transformed_features = tf_transform_output.transform_raw_features(
+        features)
+
+    # The key name MUST be 'examples'.
+    receiver_tensors = {'examples': serialized_tf_example}
+
+    #features.update(transformed_features)
+    features = {INPUT_LAYER: transformed_features[INPUT_LAYER]}
+
+    return tfma.export.EvalInputReceiver(
+        features=features,
+        receiver_tensors=receiver_tensors,
+        labels=transformed_features[_LABEL_KEY])
 
 
 def trainer_fn(hparams, schema):
@@ -151,7 +181,7 @@ def trainer_fn(hparams, schema):
         tf_transform_output,
         batch_size=eval_batch_size)
 
-    export_serving_receiver_fn = serving_receiver_fn(tf_transform_output, schema)
+    export_serving_receiver_fn = lambda: serving_receiver_fn(tf_transform_output, schema)
     exporter = tf.estimator.FinalExporter('ml-pipeline', export_serving_receiver_fn)
 
     train_spec = tf.estimator.TrainSpec(
@@ -165,10 +195,14 @@ def trainer_fn(hparams, schema):
 
     estimator = build_estimator()
 
+    receiver_fn = lambda: eval_input_receiver_fn(
+        tf_transform_output, schema)
+
     return {
         "estimator": estimator,
         "train_spec": train_spec,
-        "eval_spec": eval_spec
+        "eval_spec": eval_spec,
+        "eval_input_receiver_fn": receiver_fn
     }
 
 
