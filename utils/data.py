@@ -27,9 +27,9 @@ def image_to_tfrecord(image_file, label_list):
     return result
 
 
-def write_tfrecords(tfrecord_file, image_labels, num=10):
+def write_tfrecords(tfrecord_file, image_labels):
     with tf.io.TFRecordWriter(tfrecord_file) as writer:
-        for file_name, label in list(image_labels.items())[:num]:
+        for file_name, label in list(image_labels.items()):
             label_list = np.zeros(NUM_CLASS, dtype=np.uint8)
             label_list[int(label)-1] = 1
             tf_example = image_to_tfrecord(file_name, label_list)
