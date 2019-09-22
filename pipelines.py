@@ -11,6 +11,7 @@ from tfx.components.schema_gen.component import SchemaGen
 from tfx.components.example_validator.component import ExampleValidator
 from tfx.components.transform.component import Transform
 from tfx.components.trainer.component import Trainer
+from tfx.components.evaluator.component import Evaluator
 from tfx.components.model_validator.component import ModelValidator
 from tfx.components.pusher.component import Pusher
 
@@ -81,11 +82,16 @@ def create_pipelines():
         eval_args=trainer_pb2.EvalArgs(num_steps=50))
     print('trainer', trainer.outputs.output)
 
-    # model_analyzer = Evaluator()
+    model_analyzer = Evaluator(
+        examples=example_gen.outputs.examples,
+        model_exports=trainer.outputs.output
+        )
+    print('model_analyzer', model_analyzer)
 
     model_validator = ModelValidator(
         examples=example_gen.outputs.examples,
         model=trainer.outputs.output)
+    print('model_validator', model_validator)
 
     pusher = Pusher(
         model_export=trainer.outputs.output,
@@ -94,6 +100,7 @@ def create_pipelines():
           filesystem=pusher_pb2.PushDestination.Filesystem(
               base_directory=serving_model_dir))
     )
+    print('pusher', pusher)
 
 
     return pipeline.Pipeline(
@@ -101,7 +108,7 @@ def create_pipelines():
         pipeline_root=airflow_pipeline_root,
         components=[
             example_gen, statistics_gen, infer_schema, validate_stats, transform,
-            trainer #, model_validator, pusher
+            trainer, model_analyzer, model_validator, pusher
         ],
         enable_cache=True,
         metadata_db_root=metadata_db_root,
