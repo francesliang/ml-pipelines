@@ -193,7 +193,8 @@ def trainer_fn(hparams, schema):
         steps=hparams.eval_steps,
         exporters=[exporter])
 
-    estimator = build_estimator()
+    run_config = tf.estimator.RunConfig(model_dir=hparams.serving_model_dir)
+    estimator = build_estimator(config=run_config)
 
     receiver_fn = lambda: eval_input_receiver_fn(
         tf_transform_output, schema)
@@ -206,7 +207,7 @@ def trainer_fn(hparams, schema):
     }
 
 
-def build_estimator():
+def build_estimator(config):
     '''
     num_classes = len(LABEL_KEYS)
 
@@ -254,10 +255,10 @@ def build_estimator():
     optimiser = tf.keras.optimizers.Adadelta()
 
     tf_keras_model.compile(loss=tf.keras.losses.categorical_crossentropy,
-                  optimizer=optimiser)
-                  #metrics=['accuracy'])
+                  optimizer=optimiser,
+                  metrics=['accuracy'])
 
-    estimator = tf.keras.estimator.model_to_estimator(keras_model=tf_keras_model)
+    estimator = tf.keras.estimator.model_to_estimator(keras_model=tf_keras_model, config=config)
 
 
     '''
