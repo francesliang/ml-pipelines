@@ -10,20 +10,20 @@ def image_to_tfrecord(image_file, label_list):
     image = PIL.Image.open(image_file)
     image_arr = np.asarray(image)
     image_shape = image_arr.shape
-    h, w, = image_shape
-    d = 1
+    height, width = image_shape
+    depth = 1
 
     result = None
 
     feature = {
-        'height': _int64_feature([h]),
-        'width': _int64_feature([w]),
-        'depth': _int64_feature([d]),
+        'height': _int64_feature([height]),
+        'width': _int64_feature([width]),
+        'depth': _int64_feature([depth]),
         'label': _int64_feature(label_list),
-        'image_raw': _int64_feature(image_arr.flatten())
+        'image_raw': _float_feature(image_arr.flatten())
     }
-
     result = tf.train.Example(features=tf.train.Features(feature=feature))
+
     return result
 
 
