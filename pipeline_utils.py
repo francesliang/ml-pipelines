@@ -153,7 +153,7 @@ def trainer_fn(hparams, schema):
         exporters=[exporter])
 
     run_config = tf.estimator.RunConfig(model_dir=hparams.serving_model_dir)
-    estimator = build_estimator(config=run_config)
+    estimator = _build_estimator(config=run_config)
 
     receiver_fn = lambda: eval_input_receiver_fn(
         tf_transform_output, schema)
@@ -166,10 +166,11 @@ def trainer_fn(hparams, schema):
     }
 
 
-def build_estimator(config):
+def _build_estimator(config):
 
     num_classes = len(LABEL_KEYS)
 
+    # Keras example of CNN for MNIST
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.InputLayer(
         input_shape=(IM_SHAPE[0]*IM_SHAPE[1]*IM_SHAPE[2],),
@@ -192,6 +193,7 @@ def build_estimator(config):
         optimizer=optimiser,
         metrics=['accuracy'])
 
+    # Convert a Keras model to tf.Estimator
     estimator = tf.keras.estimator.model_to_estimator(keras_model=model,
         config=config)
 
