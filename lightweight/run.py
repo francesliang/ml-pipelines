@@ -10,9 +10,6 @@ from lightweight.pipeline import (
 )
 
 
-feature_list = ['feature_1', 'feature_2', 'feature_3']
-
-
 def create_pipeline() -> object:
      """
      Create a pipeline
@@ -22,16 +19,12 @@ def create_pipeline() -> object:
          outputs={},
      )
 
-    feature_nodes = []
-    for feature in feature_list:
-        feature_nodes.append(ExtractFeatureNode(feature))
-
      pipe = Pipeline(
-         LogNode("Log-pipeline")
-         | ImportDataNode("Import-data")
-         | ProcessDataNode("Process-Data")
-         | feature_nodes
-         | OutputFeaturesNode("Ouput-features"),
+         LogNode("log")
+         | ImportDataNode("import")
+         | ProcessDataNode("process")
+         | [ExtractFeatureNode('feature-1'), ExtractFeatureNode('feature-2')]
+         | OutputFeaturesNode("output"),
          global_state=global_state,
      )
 
