@@ -19,3 +19,28 @@ class ImportDataNode(Node):
          self.push(item)
 
 
+class ProcessDataNode(Node):
+    """
+    """
+
+    def process(self, item):
+        self.push(item)
+
+
+class ExtractFeatureNode(Node):
+    """
+    """
+
+    def process(self, item):
+        print("Extract feature {}".format(self.name))
+        self.push(item)
+
+
+class OutputFeaturesNode(Node):
+    """
+    """
+
+    def process(self, item):
+        self.push(item)
+
+
