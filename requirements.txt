@@ -6,3 +6,4 @@ Werkzeug==0.14.1
 Pillow
 numpy
 consecution
+graphviz
