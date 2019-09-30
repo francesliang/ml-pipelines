@@ -35,6 +35,8 @@ def create_pipeline() -> object:
          global_state=global_state,
      )
 
+     pipe.plot()
+
      return pipe
 
 
