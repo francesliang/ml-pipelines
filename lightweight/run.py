@@ -10,7 +10,7 @@ from lightweight.pipeline import (
 )
 
 
-def create_pipeline() -> object:
+def create_pipeline():
      """
      Create a pipeline
      """
@@ -33,7 +33,7 @@ def create_pipeline() -> object:
      return pipe
 
 
-def run_pipeline() -> List:
+def run_pipeline():
      """
      Run pipeline
      """
