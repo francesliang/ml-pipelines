@@ -1,3 +1,5 @@
+
+
 from consecution import Node
 
 
@@ -13,6 +15,7 @@ class LogNode(Node):
 
 class ImportDataNode(Node):
      """
+     Import data to pipeline.
      """
 
      def process(self, item):
@@ -21,6 +24,7 @@ class ImportDataNode(Node):
 
 class ProcessDataNode(Node):
     """
+    Process data in pipeline.
     """
 
     def process(self, item):
@@ -29,6 +33,7 @@ class ProcessDataNode(Node):
 
 class ExtractFeatureNode(Node):
     """
+    Extract features from data.
     """
 
     def process(self, item):
@@ -38,6 +43,7 @@ class ExtractFeatureNode(Node):
 
 class OutputFeaturesNode(Node):
     """
+    Output data features.
     """
 
     def process(self, item):
