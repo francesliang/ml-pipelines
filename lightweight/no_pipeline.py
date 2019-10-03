@@ -18,33 +18,37 @@ class Pipeline:
         """
         Import data to pipeline.
         """
-        # Do import data
         imported_data = None
+        # Do import data
         return imported_data
 
     def process_data(self, imported_data):
         """
         Process data in pipeline.
         """
-        # Do process data
         processed_data = None
+        # Do process data
         return processed_data
 
     def extract_feature(self, feature_name, processed_data):
         """
         Extract features from data.
         """
-        # Do extract feature
-        extracted_feature = None
+        extracted_feature = self._extract(feature_name, processed_data)
         return extracted_feature
 
     def output_features(self, extracted_features):
         """
         Output data features
         """
-        # Do output features
         features = []
+        # Do output features
         return features
+
+    def _extract(self, feature_name, processed_data):
+        feature = None
+        # Do extract feature
+        return feature
 
     def run(self, input_item):
         """
