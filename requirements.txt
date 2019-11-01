@@ -2,7 +2,7 @@ tensorflow==1.14
 tfx==0.14.0
 apache-airflow==1.10.3
 Flask==1.0.4
-Werkzeug==0.14.1
+Werkzeug==0.15.3
 Pillow
 numpy
 consecution
