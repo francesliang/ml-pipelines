@@ -1,4 +1,4 @@
-tensorflow==1.14
+tensorflow==2.3.1
 tfx==0.14.0
 apache-airflow==1.10.3
 Flask==1.0.4
